@@ -1,4 +1,5 @@
-name: Windows CI
+
+name: Windows Static Build
 
 on:
   push:
@@ -7,29 +8,71 @@ on:
 
 jobs:
   windows:
-    name: Build and Test (Windows)
     runs-on: windows-2022
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Qt6
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.8.3'
-          arch: win64_msvc2022_64
-          modules: ''
+      - name: Clone vcpkg
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
+          C:/vcpkg/bootstrap-vcpkg.bat -disableMetrics
 
-      - name: Configure
-        run: >
-          cmake -S . -B build
-          -G "Visual Studio 17 2022"
-          -A x64
-          -DBUILD_TESTING=ON
+      - name: Configure static Windows build
+        shell: pwsh
+        run: |
+          cmake -S . -B build-windows `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static `
+            -DBUILD_TESTING=ON
 
       - name: Build
-        run: cmake --build build --config Release --parallel
+        shell: pwsh
+        run: |
+          cmake --build build-windows --config Release --parallel 2
 
-      - name: Test
-        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Run tests
+        shell: pwsh
+        run: |
+          ctest --test-dir build-windows `
+            -C Release --output-on-failure
+
+      - name: Verify executable dependencies
+        shell: pwsh
+        run: |
+          $exe = "build-windows/Release/ROTKFontChanger.exe"
+
+          if (!(Test-Path $exe)) {
+            throw "Executable not found"
+          }
+
+          $dumpbin = Get-ChildItem `
+            "C:/Program Files/Microsoft Visual Studio/2022" `
+            -Filter dumpbin.exe -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          if (!$dumpbin) {
+            throw "dumpbin.exe not found"
+          }
+
+          $dependencies = & $dumpbin /DEPENDENTS $exe
+          $dependencies | Out-Host
+
+          if ($dependencies -match "Qt6.*\.dll") {
+            throw "Dynamic Qt dependency detected"
+          }
+
+          if ($dependencies -match "VCRUNTIME.*\.dll|MSVCP.*\.dll") {
+            throw "Dynamic MSVC runtime detected"
+          }
+
+      - name: Upload standalone EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: ROTKFontChanger-Windows-x64
+          path: build-windows/Release/ROTKFontChanger.exe
+          if-no-files-found: error

@@ -11,7 +11,7 @@ set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
 
-add_executable(ROTKFontChanger
+add_executable(ROTKFontChanger WIN32
     src/main.cpp
     src/MainWindow.cpp
     src/MainWindow.hpp
