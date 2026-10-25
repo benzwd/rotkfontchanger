@@ -322,7 +322,7 @@ void MainWindow::loadFont(const QString &path)
 
     QFontInfo fontInfo(previewLabel->font());
 
-    previewLabel->setText("GAGNEZ");
+    previewLabel->setText("King of the Kill");
 
     fontNameLabel->setText("Selected font: " + info.fileName());
     dropLabel->setText("Selected: " + info.fileName());
@@ -470,7 +470,7 @@ void MainWindow::resetFonts()
     auto confirmation = QMessageBox::warning(
         this,
         "Reset to Default",
-        "This will replace the 19 font files in:\n\n"
+        "This will replace font files in:\n\n"
             + outputDir +
             "\n\nExisting files will be overwritten.\n"
             "Continue?",
@@ -492,7 +492,7 @@ void MainWindow::resetFonts()
         QMessageBox::information(
             this,
             "Reset complete",
-            "19 default fonts restored successfully!"
+            "Default fonts restored successfully!"
             );
     } else {
         QMessageBox::critical(
