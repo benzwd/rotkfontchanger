@@ -1,10 +1,16 @@
-
 name: Windows Static Build
 
 on:
   push:
+    tags:
+      - "v*"
+    branches:
+      - "**"
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   windows:
@@ -76,3 +82,10 @@ jobs:
           name: ROTKFontChanger-Windows-x64
           path: build-windows/Release/ROTKFontChanger.exe
           if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build-windows/Release/ROTKFontChanger.exe
+          generate_release_notes: true

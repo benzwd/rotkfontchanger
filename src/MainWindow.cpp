@@ -1,6 +1,5 @@
-
-#include "MainWindow.hpp"
-#include "FontManager.hpp"
+#include "MainWindow.h"
+#include "FontManager.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -15,253 +14,258 @@
 #include <QDropEvent>
 #include <QMimeData>
 #include <QUrl>
-#include <QDebug>
 #include <QFontInfo>
 #include <QSettings>
 #include <QStatusBar>
 #include <QLabel>
+#include <QFile>
+#include <QCoreApplication>
+#include <QMouseEvent>
+#include <QWindow>
+#include <QStyle>
+#include <QFrame>
+#include <QSizePolicy>
+#include <QSvgWidget>
+
+class RotkTitleBar : public QWidget {
+public:
+    using QWidget::QWidget;
+protected:
+    void mousePressEvent(QMouseEvent *event) override {
+        if (event->button() == Qt::LeftButton && window()->windowHandle()) {
+            window()->windowHandle()->startSystemMove();
+            event->accept();
+            return;
+        }
+        QWidget::mousePressEvent(event);
+    }
+};
+
+static QString detectGameInstallation()
+{
+    const QString defaultPath = "C:/Games/ROTK";
+
+    if (QDir(defaultPath).exists("UI/Resource/Fonts")) {
+        return defaultPath;
+    }
+
+    return {};
+}
 
 MainWindow::MainWindow(QWidget *parent)
     : QWidget(parent)
 {
     setWindowTitle("ROTK Font Changer");
-    resize(650, 480);
-    QFont defaultFont("Arial", 14);
-    setFont(defaultFont);
+    resize(560, 460);
+    setMinimumSize(560, 460);
+    setObjectName("rootWindow");
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    setFont(QFont("Arial", 10));
     setAcceptDrops(true);
 
-    setStyleSheet(R"(
-        QWidget {
-            background-color: #101116;
-            color: #f4f4f5;
-        }
+    QFile styleFile(":/style.qss");
+    if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text))
+        setStyleSheet(QString::fromUtf8(styleFile.readAll()));
+    else
+        qWarning() << "Cannot load" << styleFile.fileName();
 
-        QLabel#title {
-            font-size: 26px;
-            font-weight: bold;
-        }
+    auto *windowLayout = new QVBoxLayout(this);
+    windowLayout->setContentsMargins(1, 1, 1, 1);
+    windowLayout->setSpacing(0);
 
-        QLabel#subtitle {
-            color: #a1a1aa;
-            font-size: 13px;
-        }
+    auto *titleBar = new RotkTitleBar(this);
+    titleBar->setObjectName("titleBar");
+    titleBar->setFixedHeight(52);
+    auto *titleLayout = new QHBoxLayout(titleBar);
+    titleLayout->setContentsMargins(9, 0, 0, 0);
+    titleLayout->setSpacing(0);
+    auto *logoContainer = new QWidget(titleBar);
+    logoContainer->setFixedSize(95, 48);
 
-        QLabel#preview {
-            background-color: #1c1e27;
-            border: 1px solid #363846;
-            border-radius: 10px;
-            padding: 25px;
-        }
+    auto *logoLayout = new QVBoxLayout(logoContainer);
+    logoLayout->setContentsMargins(0, 0, 0, 0);
+    logoLayout->setSpacing(0);
 
-        QPushButton {
-            background-color: #323442;
-            border: none;
-            border-radius: 8px;
-            padding: 12px;
-        }
+    auto *logo = new QSvgWidget(":/rotk-logo.svg", logoContainer);
+    logo->setFixedSize(95, 35);
 
-        QPushButton:hover {
-            background-color: #444657;
-        }
+    auto *unofficial = new QLabel("UNOFFICIAL", logoContainer);
+    unofficial->setObjectName("unofficialLabel");
+    unofficial->setAlignment(Qt::AlignCenter);
+    unofficial->setFixedHeight(12);
 
-        QPushButton#generate {
-            background-color: #7655d6;
-            font-weight: bold;
-        }
+    auto *separator = new QLabel("│", titleBar);
+    separator->setObjectName("separator");
+    auto *appName = new QLabel("FONT CHANGER", titleBar);
+    appName->setObjectName("appName");
+    auto *versionLabel = new QLabel(QString("by Feniix (v%1)").arg(ROTK_APP_VERSION), titleBar);
+    versionLabel->setObjectName("versionLabel");
+    auto *minimizeButton = new QPushButton("−", titleBar);
+    minimizeButton->setObjectName("minimizeButton");
+    minimizeButton->setFixedSize(44, 52);
+    auto *closeButton = new QPushButton("×", titleBar);
+    closeButton->setObjectName("closeButton");
+    closeButton->setFixedSize(44, 52);
 
-        QPushButton#generate:hover {
-            background-color: #8b6aee;
-        }
+    logoLayout->addWidget(logo, 0, Qt::AlignHCenter);
+    logoLayout->addWidget(unofficial, 0, Qt::AlignHCenter);
+    titleLayout->addWidget(logoContainer);
 
-        QPushButton#generate:disabled {
-            background-color: #34313e;
-            color: #888888;
-        }
+    titleLayout->addSpacing(9);
+    titleLayout->addWidget(separator);
 
-        QLabel#statusLabel {
-            color: #777777;
-            font-size: 11px;
-            padding: 8px;
-            border-top: 1px solid #333333;
-        }
+    titleLayout->addSpacing(9);
+    titleLayout->addWidget(appName);
+    titleLayout->addSpacing(10);
+    titleLayout->addWidget(versionLabel);
+    titleLayout->addStretch();
+    titleLayout->addWidget(minimizeButton);
+    titleLayout->addWidget(closeButton);
+    windowLayout->addWidget(titleBar);
+    connect(minimizeButton, &QPushButton::clicked, this, &QWidget::showMinimized);
+    connect(closeButton, &QPushButton::clicked, this, &QWidget::close);
 
-        QLineEdit#gamePathEdit {
-            background-color: #1c1e27;
-            color: #f5f5f5;
-            border: 1px solid #363846;
-            border-radius: 8px;
-            padding: 10px 12px;
-            selection-background-color: #7655d6;
-            selection-color: #ffffff;
-        }
+    auto *content = new QWidget(this);
+    content->setObjectName("content");
+    auto *layout = new QVBoxLayout(content);
+    layout->setContentsMargins(18, 16, 18, 17);
+    layout->setSpacing(10);
+    windowLayout->addWidget(content, 1);
 
-        QLineEdit#gamePathEdit:hover {
-            border: 1px solid #55566a;
-        }
-
-        QLineEdit#gamePathEdit:focus {
-            border: 1px solid #8b5cf6;
-            background-color: #222430;
-        }
-
-        QLineEdit#gamePathEdit:disabled {
-            background-color: #17181e;
-            color: #777777;
-            border: 1px solid #292a33;
-        }
-    )");
-
-    auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(30, 30, 30, 30);
-    layout->setSpacing(20);
-
-    // Title
-    auto *title = new QLabel("ROTK Font Changer");
-    title->setObjectName("title");
-
-    auto *subtitle = new QLabel(
-        "Customize your Z1 Battle Royale fonts"
-    );
+    auto *eyebrow = new QLabel("CUSTOMIZATION&nbsp;&nbsp;&nbsp;<span style='color:#e00000;'>━━━</span>&nbsp;&nbsp;&nbsp;FONTS", content);
+    eyebrow->setObjectName("eyebrow");
+    layout->addWidget(eyebrow);
+    auto *headline = new QLabel("YOUR FONT. <span style='color:#e00000;'>YOUR GAME.</span>", content);
+    headline->setObjectName("headline");
+    layout->addWidget(headline);
+    auto *subtitle = new QLabel("Customize the ROTK experience with your own font.", content);
     subtitle->setObjectName("subtitle");
-
-    layout->addWidget(title);
     layout->addWidget(subtitle);
 
-
-    auto *gameTitle = new QLabel("GAME INSTALLATION");
-
-    auto *gameLayout = new QHBoxLayout();
-
-    gamePathEdit = new QLineEdit();
-    gamePathEdit->setObjectName("gamePathEdit");
-    gamePathEdit->setPlaceholderText(
-        "Select your ROTK installation folder..."
-    );
-
-    gameBrowseButton = new QPushButton("Browse...");
-
-    gameLayout->addWidget(gamePathEdit, 1);
-    gameLayout->addWidget(gameBrowseButton);
-
-    layout->addWidget(gameTitle);
-    layout->addLayout(gameLayout);
-
-    // Restore the last selected path
-    QSettings settings("ROTKFontChanger", "ROTKFontChanger");
-
-    gamePathEdit->setText(
-        settings.value("gameInstallation").toString()
-    );
-
-    connect(
-        gameBrowseButton,
-        &QPushButton::clicked,
-        this,
-        &MainWindow::browseGameInstallation
-    );
-
-    connect(
-        gamePathEdit,
-        &QLineEdit::editingFinished,
-        this,
-        [this]() {
-            QSettings settings(
-                "ROTKFontChanger",
-                "ROTKFontChanger"
-            );
-
-            settings.setValue(
-                "gameInstallation",
-                gamePathEdit->text().trimmed()
-            );
-        }
-    );
-
-
-    dropLabel = new QLabel(
-        "Drop your .ttf font here\n"
-        "or use the Browse button below"
-    );
-
-    dropLabel->setAlignment(Qt::AlignCenter);
-    dropLabel->setMinimumHeight(100);
-    dropLabel->setStyleSheet(R"(
-        QLabel {
-            background-color: #1c1e27;
-            border: 2px dashed #7655d6;
-            border-radius: 10px;
-            color: #a1a1aa;
-            padding: 15px;
-        }
-    )");
-
-    layout->addWidget(dropLabel);
-
-    // Font selection
-    auto *fontLayout = new QHBoxLayout();
-
-    fontNameLabel = new QLabel("No font selected");
-
-    browseButton = new QPushButton("Browse...");
-
-    fontLayout->addWidget(fontNameLabel, 1);
-    fontLayout->addWidget(browseButton);
-
-    layout->addLayout(fontLayout);
-
-    // Font preview
-    previewLabel = new QLabel("GAGNEZ");
+    auto *previewPanel = new QWidget(content);
+    previewPanel->setObjectName("previewPanel");
+    auto *panelLayout = new QVBoxLayout(previewPanel);
+    panelLayout->setContentsMargins(14, 11, 14, 12);
+    panelLayout->setSpacing(6);
+    auto *previewCaption = new QLabel("FONT PREVIEW", previewPanel);
+    previewCaption->setObjectName("previewCaption");
+    panelLayout->addWidget(previewCaption);
+    previewLabel = new QLabel("King of the Kill", previewPanel);
     previewLabel->setObjectName("preview");
     previewLabel->setAlignment(Qt::AlignCenter);
-    previewLabel->setMinimumHeight(140);
+    previewLabel->setMinimumHeight(53);
+    panelLayout->addWidget(previewLabel, 1);
+    auto *line = new QFrame(previewPanel);
+    line->setObjectName("panelDivider");
+    line->setFrameShape(QFrame::HLine);
+    panelLayout->addWidget(line);
+    auto *fontRow = new QHBoxLayout();
+    fontRow->setSpacing(8);
+    fontNameLabel = new QLabel("Selected font: No font selected", previewPanel);
+    fontNameLabel->setObjectName("fontNameLabel");
+    fontNameLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    browseButton = new QPushButton("BROWSE FONT", previewPanel);
+    browseButton->setObjectName("browseButton");
+    fontRow->addWidget(fontNameLabel, 1);
+    fontRow->addWidget(browseButton);
+    panelLayout->addLayout(fontRow);
+    layout->addWidget(previewPanel, 1);
 
-    layout->addWidget(previewLabel);
+    dropLabel = new QLabel("Drop a .ttf file anywhere in this window", content);
+    dropLabel->setObjectName("dropLabel");
+    dropLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(dropLabel);
 
-    layout->addStretch();
-
-    // Generate button
-    generateButton = new QPushButton("Apply");
+    auto *actions = new QHBoxLayout();
+    actions->setSpacing(8);
+    resetButton = new QPushButton("RESTORE DEFAULTS", content);
+    resetButton->setObjectName("resetButton");
+    generateButton = new QPushButton("APPLY FONT     →", content);
     generateButton->setObjectName("generate");
     generateButton->setEnabled(false);
+    resetButton->setFixedHeight(43);
+    generateButton->setFixedHeight(43);
+    actions->addWidget(resetButton, 1);
+    actions->addWidget(generateButton, 1);
+    layout->addLayout(actions);
 
-    layout->addWidget(generateButton);
+    auto *footer = new QWidget(this);
+    footer->setObjectName("footer");
+    footer->setFixedHeight(58);
 
-    resetButton = new QPushButton("Reset to Default");
+    auto *footerLayout = new QHBoxLayout(footer);
+    footerLayout->setContentsMargins(15, 0, 15, 0);
+    footerLayout->setSpacing(10);
 
-    layout->addWidget(resetButton);
+    auto *ready = new QLabel("●  NOT CONFIGURED", footer);
+    ready->setObjectName("ready");
+    ready->setMinimumWidth(115);
 
-    connect(
-        resetButton,
-        &QPushButton::clicked,
-        this,
-        &MainWindow::resetFonts
-    );
+    gamePathEdit = new QLineEdit(footer);
+    gamePathEdit->setObjectName("gamePathEdit");
+    gamePathEdit->setPlaceholderText("Select your ROTK installation folder...");
+    gamePathEdit->setMinimumWidth(0);
 
-    // Button connections
-    connect(
-        browseButton,
-        &QPushButton::clicked,
-        this,
-        &MainWindow::selectFont
-    );
+    auto updateStatus = [this, ready]() {
+        const bool gameFound = !gameFontsDirectory().isEmpty();
 
-    connect(
-        generateButton,
-        &QPushButton::clicked,
-        this,
-        &MainWindow::generateFonts
-    );
+        ready->setText(gameFound ? "●  READY" : "●  NOT FOUND");
+        ready->setProperty("state", gameFound ? "ready" : "missing");
 
-    auto *statusLabel = new QLabel(
-        QString("ROTK Font Changer v%1 | by Feniix")
-            .arg(ROTK_APP_VERSION)
-    );
+        resetButton->setEnabled(gameFound);
+        generateButton->setEnabled(gameFound && !selectedFontPath.isEmpty());
 
-    statusLabel->setObjectName("statusLabel");
-    statusLabel->setAlignment(Qt::AlignCenter);
+        ready->style()->unpolish(ready);
+        ready->style()->polish(ready);
+    };
 
-    layout->addWidget(statusLabel);
+    connect(gamePathEdit, &QLineEdit::textChanged,
+            this, updateStatus);
+
+    updateStatus();
+
+    gameBrowseButton = new QPushButton("BROWSE", footer);
+    gameBrowseButton->setObjectName("gameBrowseButton");
+    gameBrowseButton->setFixedHeight(32);
+
+    footerLayout->addWidget(ready);
+    footerLayout->addWidget(gamePathEdit, 1);
+    footerLayout->addWidget(gameBrowseButton);
+
+    windowLayout->addWidget(footer);
+
+    QSettings settings("ROTKFontChanger", "ROTKFontChanger");
+
+    QString gamePath = settings.value("gameInstallation").toString();
+
+    if (!QDir(gamePath).exists("UI/Resource/Fonts")) {
+        gamePath = detectGameInstallation();
+    }
+
+    gamePathEdit->setText(gamePath);
+
+    connect(gamePathEdit, &QLineEdit::editingFinished,
+            this, [this]() {
+                QSettings settings("ROTKFontChanger", "ROTKFontChanger");
+                settings.setValue(
+                    "gameInstallation",
+                    gamePathEdit->text().trimmed()
+                    );
+            });
+
+    connect(gameBrowseButton, &QPushButton::clicked,
+            this, &MainWindow::browseGameInstallation);
+
+    connect(browseButton, &QPushButton::clicked,
+            this, &MainWindow::selectFont);
+
+    connect(generateButton, &QPushButton::clicked,
+            this, &MainWindow::generateFonts);
+
+    connect(resetButton, &QPushButton::clicked,
+            this, &MainWindow::resetFonts);
 }
+
 
 
 void MainWindow::loadFont(const QString &path)
@@ -271,13 +275,13 @@ void MainWindow::loadFont(const QString &path)
     if (!info.isFile() ||
         info.suffix().compare(
             "ttf", Qt::CaseInsensitive
-        ) != 0)
+            ) != 0)
     {
         QMessageBox::warning(
             this,
             "Invalid file",
             "Please select a valid .ttf file."
-        );
+            );
         return;
     }
 
@@ -288,7 +292,7 @@ void MainWindow::loadFont(const QString &path)
             this,
             "Error",
             "Unable to load this font."
-        );
+            );
         return;
     }
 
@@ -307,7 +311,6 @@ void MainWindow::loadFont(const QString &path)
     previewFont.setWeight(QFont::Normal);
     previewFont.setStyleStrategy(QFont::PreferMatch);
 
-    // Release previous custom font
     if (loadedFontId != -1) {
         QFontDatabase::removeApplicationFont(loadedFontId);
     }
@@ -319,19 +322,12 @@ void MainWindow::loadFont(const QString &path)
 
     QFontInfo fontInfo(previewLabel->font());
 
-    qDebug() << "Requested family:" << family;
-    qDebug() << "Resolved family:" << fontInfo.family();
-    qDebug() << "Exact match:" << fontInfo.exactMatch();
-
     previewLabel->setText("GAGNEZ");
 
-    fontNameLabel->setText(info.fileName());
+    fontNameLabel->setText("Selected font: " + info.fileName());
     dropLabel->setText("Selected: " + info.fileName());
 
-    generateButton->setEnabled(true);
-
-    qDebug() << "Font loaded:" << family;
-    qDebug() << "Preview font:" << previewLabel->font().family();
+    generateButton->setEnabled(!gameFontsDirectory().isEmpty());
 }
 
 
@@ -342,7 +338,7 @@ void MainWindow::selectFont()
         "Select a font",
         QString(),
         "TrueType Fonts (*.ttf)"
-    );
+        );
 
     if (!path.isEmpty()) {
         loadFont(path);
@@ -356,7 +352,7 @@ void MainWindow::generateFonts()
             this,
             "Error",
             "Please select a font first."
-        );
+            );
         return;
     }
 
@@ -367,20 +363,18 @@ void MainWindow::generateFonts()
             this,
             "Game installation",
             "Please select a valid ROTK fonts directory."
-        );
+            );
         return;
     }
 
     auto confirmation = QMessageBox::warning(
         this,
-        "Apply / Generate",
-        "This will create or replace 19 font files in:\n\n"
-            + outputDir +
-        "\n\nExisting files will be overwritten "
-        "without backup.\n\nContinue?",
+        "Apply Font",
+        "Apply this font to ROTK?\n\n"
+        "This will replace the current game fonts.",
         QMessageBox::Yes | QMessageBox::No,
         QMessageBox::No
-    );
+        );
 
     if (confirmation != QMessageBox::Yes)
         return;
@@ -391,20 +385,20 @@ void MainWindow::generateFonts()
         selectedFontPath,
         outputDir,
         errorMessage
-    );
+        );
 
     if (success) {
         QMessageBox::information(
             this,
             "Success",
-            "19 font files generated successfully!"
-        );
+            "Font files generated successfully!"
+            );
     } else {
         QMessageBox::critical(
             this,
             "Generation failed",
             errorMessage
-        );
+            );
     }
 }
 
@@ -418,24 +412,17 @@ void MainWindow::dragEnterEvent(QDragEnterEvent *event)
         return;
     }
 
-    QUrl url = mime->urls().first();
+    QUrl url = mime->urls().constFirst();
 
     if (url.isLocalFile() &&
         url.toLocalFile().endsWith(
             ".ttf", Qt::CaseInsensitive
-        ))
+            ))
     {
         event->acceptProposedAction();
-
-        dropLabel->setStyleSheet(R"(
-            QLabel {
-                background-color: #29233d;
-                border: 2px dashed #a78bfa;
-                border-radius: 10px;
-                color: white;
-                padding: 15px;
-            }
-        )");
+        dropLabel->setProperty("dragActive", true);
+        dropLabel->style()->unpolish(dropLabel);
+        dropLabel->style()->polish(dropLabel);
     } else {
         event->ignore();
     }
@@ -444,24 +431,20 @@ void MainWindow::dragEnterEvent(QDragEnterEvent *event)
 void MainWindow::dragLeaveEvent(QDragLeaveEvent *event)
 {
     event->accept();
-
-    dropLabel->setStyleSheet(R"(
-        QLabel {
-            background-color: #1c1e27;
-            border: 2px dashed #7655d6;
-            border-radius: 10px;
-            color: #a1a1aa;
-            padding: 15px;
-        }
-    )");
+    dropLabel->setProperty("dragActive", false);
+    dropLabel->style()->unpolish(dropLabel);
+    dropLabel->style()->polish(dropLabel);
 }
 
 void MainWindow::dropEvent(QDropEvent *event)
 {
+    dropLabel->setProperty("dragActive", false);
+    dropLabel->style()->unpolish(dropLabel);
+    dropLabel->style()->polish(dropLabel);
     const QMimeData *mime = event->mimeData();
 
     if (mime->hasUrls() && mime->urls().size() == 1) {
-        QUrl url = mime->urls().first();
+        QUrl url = mime->urls().constFirst();
 
         if (url.isLocalFile()) {
             loadFont(url.toLocalFile());
@@ -469,15 +452,6 @@ void MainWindow::dropEvent(QDropEvent *event)
         }
     }
 
-    dropLabel->setStyleSheet(R"(
-        QLabel {
-            background-color: #1c1e27;
-            border: 2px dashed #7655d6;
-            border-radius: 10px;
-            color: #a1a1aa;
-            padding: 15px;
-        }
-    )");
 }
 
 void MainWindow::resetFonts()
@@ -489,7 +463,7 @@ void MainWindow::resetFonts()
             this,
             "Game installation",
             "Please select a valid ROTK fonts directory."
-        );
+            );
         return;
     }
 
@@ -498,11 +472,11 @@ void MainWindow::resetFonts()
         "Reset to Default",
         "This will replace the 19 font files in:\n\n"
             + outputDir +
-        "\n\nExisting files will be overwritten.\n"
-        "Continue?",
+            "\n\nExisting files will be overwritten.\n"
+            "Continue?",
         QMessageBox::Yes | QMessageBox::No,
         QMessageBox::No
-    );
+        );
 
     if (confirmation != QMessageBox::Yes)
         return;
@@ -512,23 +486,22 @@ void MainWindow::resetFonts()
     bool success = FontManager::resetFonts(
         outputDir,
         errorMessage
-    );
+        );
 
     if (success) {
         QMessageBox::information(
             this,
             "Reset complete",
             "19 default fonts restored successfully!"
-        );
+            );
     } else {
         QMessageBox::critical(
             this,
             "Reset failed",
             errorMessage
-        );
+            );
     }
 }
-
 
 void MainWindow::browseGameInstallation()
 {
@@ -538,7 +511,7 @@ void MainWindow::browseGameInstallation()
         gamePathEdit->text().isEmpty()
             ? QDir::homePath()
             : gamePathEdit->text()
-    );
+        );
 
     if (folder.isEmpty())
         return;
@@ -548,11 +521,10 @@ void MainWindow::browseGameInstallation()
     QSettings settings(
         "ROTKFontChanger",
         "ROTKFontChanger"
-    );
+        );
 
     settings.setValue("gameInstallation", folder);
 }
-
 
 QString MainWindow::gameFontsDirectory() const
 {
@@ -568,7 +540,7 @@ QString MainWindow::gameFontsDirectory() const
         return {};
 
     const QString fontsRelativePath =
-        "UI/Fonts";
+        "UI/Resource/Fonts";
 
     QString fontsPath =
         gameDir.filePath(fontsRelativePath);

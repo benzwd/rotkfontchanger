@@ -1,5 +1,4 @@
-
-#include "FontManager.hpp"
+#include "FontManager.h"
 
 #include <QDir>
 #include <QFile>
@@ -34,7 +33,6 @@ const QStringList &FontManager::fontNames()
     return names;
 }
 
-// Writes a complete file before replacing its destination
 static bool writeFile(
     const QString &sourcePath,
     const QString &destination,
@@ -125,7 +123,6 @@ bool FontManager::generateFonts(
         return false;
     }
 
-    // Check that the source is not one of the target files
     const QString sourceCanonical = sourceInfo.canonicalFilePath();
 
     for (const QString &name : fontNames()) {
@@ -141,7 +138,6 @@ bool FontManager::generateFonts(
         }
     }
 
-    // Create or replace the 19 font files
     for (const QString &name : fontNames()) {
         QString destination = outputDir.filePath(name);
 
@@ -168,7 +164,6 @@ bool FontManager::resetFonts(
         return false;
     }
 
-    // Verify all embedded fonts first
     for (const QString &name : fontNames()) {
         QString resourcePath =
             ":/default-fonts/" + name;

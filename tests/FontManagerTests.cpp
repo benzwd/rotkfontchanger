@@ -1,7 +1,7 @@
 
 #include <QtTest/QtTest>
 
-#include "FontManager.hpp"
+#include "FontManager.h"
 
 #include <QDir>
 #include <QFile>
