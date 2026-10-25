@@ -1,0 +1,24 @@
+
+<RCC>
+    <qresource prefix="/default-fonts">
+        <file alias="ARIALUNI.TTF">default-fonts/ARIALUNI.TTF</file>
+        <file alias="leelawad.ttf">default-fonts/leelawad.ttf</file>
+        <file alias="Montserrat-Bold.ttf">default-fonts/Montserrat-Bold.ttf</file>
+        <file alias="Montserrat-ExtraBold.ttf">default-fonts/Montserrat-ExtraBold.ttf</file>
+        <file alias="Montserrat-Medium.ttf">default-fonts/Montserrat-Medium.ttf</file>
+        <file alias="Montserrat-Regular.ttf">default-fonts/Montserrat-Regular.ttf</file>
+        <file alias="Montserrat-SemiBold.ttf">default-fonts/Montserrat-SemiBold.ttf</file>
+        <file alias="NanumBarunGothicBold.ttf">default-fonts/NanumBarunGothicBold.ttf</file>
+        <file alias="NotoSansJP-Regular.ttf">default-fonts/NotoSansJP-Regular.ttf</file>
+        <file alias="Oswald-Bold_0.ttf">default-fonts/Oswald-Bold_0.ttf</file>
+        <file alias="Oswald-Light_0.ttf">default-fonts/Oswald-Light_0.ttf</file>
+        <file alias="Oswald-Regular_0.ttf">default-fonts/Oswald-Regular_0.ttf</file>
+        <file alias="Roboto-Bold.ttf">default-fonts/Roboto-Bold.ttf</file>
+        <file alias="Roboto-Light.ttf">default-fonts/Roboto-Light.ttf</file>
+        <file alias="Roboto-Medium.ttf">default-fonts/Roboto-Medium.ttf</file>
+        <file alias="RobotoMono-Regular.ttf">default-fonts/RobotoMono-Regular.ttf</file>
+        <file alias="Roboto-Regular.ttf">default-fonts/Roboto-Regular.ttf</file>
+        <file alias="ROSA Verde Normal.ttf">default-fonts/ROSA Verde Normal.ttf</file>
+        <file alias="simhei.ttf">default-fonts/simhei.ttf</file>
+    </qresource>
+</RCC>
